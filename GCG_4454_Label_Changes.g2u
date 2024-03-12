@@ -1,0 +1,126 @@
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.iBIRunID.Declare(Long)
+V.Local.iLogID.Declare(Long)
+V.Local.iRet.Declare(Long)
+V.Local.sParams.Declare(String)
+V.Local.sValues.Declare(String)
+V.Local.iRpt.Declare(Long)
+
+F.ODBC.Connection!Con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+F.ODBC.Connection!Con.ExecuteAndReturn("Select Ascii_Flag From Op_Header Where ID = '090002' and Sequence = '0000'",V.Local.sRet)
+	F.Intrinsic.Control.If(V.Local.sRet,<>,"Y")
+		'changing column size on the bdf on the staging screen depending on the an option setting 'Use Line Item Promis as Ship Date
+		F.Intrinsic.Control.If(V.Caller.Hook,=,38401)
+		F.Intrinsic.BDF.Load("AUX001","AUX001")
+		F.Intrinsic.BDF.Clone("AUX001","CLONE")
+		
+		F.Intrinsic.BDF.SetColumnTitle("CLONE",6,"Promise Date]=[PW::100]=[]=[CA::7]=[")
+		
+		F.Intrinsic.BDF.Save("CLONE","AUX001")
+	F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.Control.End
+	
+F.Intrinsic.Control.Else
+	'changing column size on the bdf on the staging screen depending on the an option setting 'Use Line Item Promis as Ship Date
+	F.Intrinsic.Control.If(V.Caller.Hook,=,38401)
+		F.Intrinsic.BDF.Load("AUX001","AUX001")
+		F.Intrinsic.BDF.Clone("AUX001","CLONE")
+		
+		F.Intrinsic.BDF.SetColumnTitle("CLONE",6,"Ship Date]=[PW::100]=[]=[CA::7]=[")
+		
+		F.Intrinsic.BDF.Save("CLONE","AUX001")
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.If(V.Caller.Switches,=,"V")
+	'changing promise date to ship date on the orders view screen depending on the an option setting 'Use Line Item Promis as Ship Date
+	f.Intrinsic.Control.If(v.Caller.Hook,=,11560)
+		v.Passed.000125.set("Ship Date")
+	f.Intrinsic.Control.ElseIf(v.Caller.Hook,=,12010)
+		v.Passed.000181.Set("Ship Date")
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Else
+	'changing promise date to ship date and must delvr date to stage/pack by on the orders line screen depending on the an option setting 'Use Line Item Promis as Ship Date
+	f.Intrinsic.Control.If(v.Caller.Hook,=,11560)
+		v.Passed.000125.set("Ship Date")
+	f.Intrinsic.Control.ElseIf(v.Caller.Hook,=,12010)
+		v.Passed.000181.Set("Ship Date")
+		v.Passed.000187.Set("Stage/Pack By")
+	f.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.If(V.Caller.Hook,=,38621)
+	'changing promise date to ship date on the shipment pick list report screen view screen depending on the an option setting 'Use Line Item Promis as Ship Date
+	V.Passed.000009.Set("Ship Date")
+	V.Passed.000010.Set("Ship Date")
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.If(V.Caller.Hook,=,16090)
+	'printing the custom reports if the Use Line Item Promise as Ship date is selected
+	F.Intrinsic.Control.If(V.Passed.009001,=,"000054")
+		V.Passed.Cancel.Set(-1)
+		F.Global.BI.GetRunID(V.Local.iBIRunID)
+		F.Global.BI.GetIDFromName("GCG_4454_OE_ACKNOWLEDGEMENT_EXT_BY_OWM.rpt",V.Local.iRpt)
+		F.Global.BI.StartLogging(V.Local.iBIRunID,V.Local.iRpt,-1,"",V.Local.iLogID)
+		
+		V.Local.sParams.Set("Terminal*!*REPORTID*!*Includestax*!*Dec")
+		F.Intrinsic.String.Build("{0}*!*{1}*!*{2}*!*{3}",V.Passed.BIP_Terminal,V.Passed.009001,V.Passed.BIP_Includestax,V.Passed.BIP_DEC,V.Local.sValues)
+		F.Global.BI.StopLogging(V.Local.iLogID)
+		F.Global.BI.RunReportPreProcessor(V.Local.iBIRunID,V.Local.iLogID,V.Local.sParams,V.Local.sValues,"",-1,True,"",-1,"",-1,"","",V.Local.iRet)
+	F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.Control.If(V.Passed.009001,=,"000071")
+		V.Passed.Cancel.Set(-1)
+		F.Global.BI.GetRunID(V.Local.iBIRunID)
+		F.Global.BI.GetIDFromName("GCG_4454_PicklistWithBarcodev3.1.9.7-1.rpt",V.Local.iRpt)
+		F.Global.BI.StartLogging(V.Local.iBIRunID,V.Local.iRpt,-1,"",V.Local.iLogID)
+		
+		V.Local.sParams.Set("Terminal*!*Rptid*!*AreaBr*!*SerLot*!*Frac*!*Decimal*!*Program")
+		F.Intrinsic.String.Build("{0}*!*{1}*!*{2}*!*{3}*!*{4}*!*{5}*!*{6}",V.Passed.BIP_Terminal,V.Passed.009001,V.Passed.BIP_Areabr,V.Passed.BIP_Serlot,V.Passed.BIP_Frac,V.Passed.BIP_Decimal,V.Passed.BIP_Program,V.Local.sValues)
+		F.Global.BI.StopLogging(V.Local.iLogID)
+		F.Global.BI.RunReportPreProcessor(V.Local.iBIRunID,V.Local.iLogID,V.Local.sParams,V.Local.sValues,"",-1,True,"",-1,"",-1,"","",V.Local.iRet)
+	F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.Control.If(V.Passed.009001,=,"000107")
+		V.Passed.Cancel.Set(-1)
+		F.Global.BI.GetRunID(V.Local.iBIRunID)
+		F.Global.BI.GetIDFromName("GCG_4454_PACKING_LISTv1.3.9.RPT",V.Local.iRpt)
+		F.Global.BI.StartLogging(V.Local.iBIRunID,V.Local.iRpt,-1,"",V.Local.iLogID)
+		
+		V.Local.sParams.Set("Terminal*!*REPORTID")
+		F.Intrinsic.String.Build("{0}*!*{1}",V.Passed.BIP_Terminal,V.Passed.009001,V.Local.sValues)
+		F.Global.BI.StopLogging(V.Local.iLogID)
+		F.Global.BI.RunReportPreProcessor(V.Local.iBIRunID,V.Local.iLogID,V.Local.sParams,V.Local.sValues,"",-1,True,"",-1,"",-1,"","",V.Local.iRet)
+	F.Intrinsic.Control.EndIf		
+F.Intrinsic.Control.EndIf
+
+F.ODBC.Connection!Con.Close
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4454_Label_Changes.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	f.Intrinsic.Control.End
+
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Main.End
+
+Program.Sub.Comments.Start
+${$0$}$$}$WAW$}$4/26/2017 3:00:50 PM$}$False
+Program.Sub.Comments.End
